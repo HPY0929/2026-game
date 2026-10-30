@@ -1,0 +1,42 @@
+body { padding: 0; margin: 0 }
+#unity-container { position: absolute }
+#unity-container.unity-desktop { left: 50%; top: 50%; transform: translate(-50%, -50%) }
+#unity-container.unity-mobile { position: fixed; width: 100%; height: 100% }
+#unity-canvas { background: #231F20 }
+.unity-mobile #unity-canvas { width: 100%; height: 100% }
+#unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none }
+#unity-logo { width: 154px; height: 130px; background: url('unity-logo-dark.png') no-repeat center }
+#unity-progress-bar-empty { width: 141px; height: 18px; margin-top: 10px; margin-left: 6.5px; background: url('progress-bar-empty-dark.png') no-repeat center }
+#unity-progress-bar-full { width: 0%; height: 18px; margin-top: 10px; background: url('progress-bar-full-dark.png') no-repeat center }
+#unity-footer { position: relative }
+.unity-mobile #unity-footer { display: none }
+#unity-logo-title-footer { float:left; width: 102px; height: 38px; background: url('unity-logo-title-footer.png') no-repeat center }
+#unity-build-title { float: right; margin-right: 10px; line-height: 38px; font-family: arial; font-size: 18px }
+#unity-fullscreen-button { cursor:pointer; float: right; width: 38px; height: 38px; background: url('fullscreen-button.png') no-repeat center }
+#unity-warning { position: absolute; left: 50%; top: 5%; transform: translate(-50%); background: white; padding: 10px; display: none }
+
+/* ===== 全螢幕：讓 #unity-container 當全螢幕元素，canvas 填滿它 =====
+   這樣 jslib 建立的小遊戲 overlay 可以掛進 container 裡，全螢幕時才看得到。 */
+#unity-container:fullscreen,
+#unity-container:-webkit-full-screen {
+  position: fixed; left: 0; top: 0; transform: none;
+  width: 100vw; height: 100vh; background: #000;
+  display: flex; align-items: center; justify-content: center;
+}
+#unity-container:fullscreen #unity-canvas,
+#unity-container:-webkit-full-screen #unity-canvas {
+  width: 100% !important; height: 100% !important;
+}
+#unity-container:fullscreen #unity-footer,
+#unity-container:-webkit-full-screen #unity-footer { display: none }
+
+/* ===== 「啟用鏡頭」按鈕（在全螢幕前先取得攝影機權限用）===== */
+#camera-permission-btn {
+  float: right; height: 26px; margin: 6px 12px 0 0; padding: 0 12px;
+  border: 1px solid #bbb; border-radius: 13px; background: #fff; color: #222;
+  font-family: arial, sans-serif; font-size: 13px; line-height: 24px; cursor: pointer;
+}
+#camera-permission-btn:hover:not(:disabled) { background: #f0f0f0; }
+#camera-permission-btn:disabled { cursor: default; opacity: 0.75; }
+#camera-permission-btn[data-state="granted"] { border-color: #3a9c53; color: #2b7a3f; }
+#camera-permission-btn[data-state="denied"]  { border-color: #c04a4a; color: #a53232; }

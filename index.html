@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | Symphony Hall Time</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-logo-title-footer"></div>
+        <div id="unity-fullscreen-button"></div>
+        <button id="camera-permission-btn" type="button" title="先在視窗模式取得攝影機權限，進入全螢幕後才不會被權限提示打斷">
+          <span id="camera-permission-label">🎥 啟用鏡頭</span>
+        </button>
+        <div id="unity-build-title">Symphony Hall Time</div>
+      </div>
+    </div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      // ===================== 攝影機權限預先取得 =====================
+      // 部分小遊戲（例如拼圖館的手勢操作）需要攝影機。瀏覽器的權限提示
+      // 一旦在全螢幕時跳出來，會把玩家踢出全螢幕 —— 這顆按鈕讓玩家在
+      // 「還是視窗模式」的時候先完成授權，之後進全螢幕就不會再被打斷。
+      (function setupCameraPermission() {
+        var btn = document.querySelector("#camera-permission-btn");
+        var label = document.querySelector("#camera-permission-label");
+        if (!btn || !label) return;
+
+        function setState(state) {
+          btn.dataset.state = state;
+          if (state === "granted") {
+            label.textContent = "✅ 鏡頭已啟用";
+            btn.disabled = true;
+            btn.title = "攝影機權限已取得，進入全螢幕後小遊戲可直接使用鏡頭";
+          } else if (state === "denied") {
+            label.textContent = "⚠️ 鏡頭被封鎖";
+            btn.disabled = true;
+            btn.title = "瀏覽器已封鎖此網站的攝影機。請點網址列左側的圖示，把攝影機改為允許。";
+          } else if (state === "pending") {
+            label.textContent = "⏳ 等待授權…";
+            btn.disabled = true;
+          } else {
+            label.textContent = "🎥 啟用鏡頭";
+            btn.disabled = false;
+          }
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          label.textContent = "此瀏覽器不支援鏡頭";
+          btn.disabled = true;
+          return;
+        }
+
+        // 開啟頁面時先看看權限是不是已經給過了
+        if (navigator.permissions && navigator.permissions.query) {
+          navigator.permissions.query({ name: "camera" }).then(function (status) {
+            setState(status.state === "prompt" ? "idle" : status.state);
+            status.onchange = function () {
+              setState(status.state === "prompt" ? "idle" : status.state);
+            };
+          }).catch(function () { setState("idle"); });
+        } else {
+          setState("idle");
+        }
+
+        btn.onclick = function () {
+          setState("pending");
+          navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
+            // 只是為了取得權限，立刻把鏡頭關掉，不佔用裝置
+            stream.getTracks().forEach(function (t) { t.stop(); });
+            setState("granted");
+            console.log("[WebBridge] 攝影機權限已取得，之後 iframe 內的小遊戲可直接使用");
+          }).catch(function (err) {
+            console.warn("[WebBridge] 取得攝影機權限失敗：" + (err && err.name));
+            setState(err && err.name === "NotAllowedError" ? "denied" : "idle");
+          });
+        };
+      })();
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/Release.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/Release.data.unityweb",
+        frameworkUrl: buildUrl + "/Release.framework.js.unityweb",
+        codeUrl: buildUrl + "/Release.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Symphony Hall Time",
+        productName: "Symphony Hall Time",
+        productVersion: "0.1.0",
+        showBanner: unityShowBanner,
+      };
+
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
+      } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+        canvas.style.width = "960px";
+        canvas.style.height = "600px";
+      }
+
+      document.querySelector("#unity-loading-bar").style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  // 對 #unity-container（一個 div）要求全螢幕，而不是對 <canvas>。
+                  // 依 HTML 規格 <canvas> 的子元素永遠不會被渲染，而全螢幕時瀏覽器
+                  // 只畫全螢幕元素那棵子樹 —— 所以若對 canvas 全螢幕，遊戲裡的
+                  // 內嵌網頁 overlay（小遊戲）就無法顯示在上面。
+                  var fsTarget = document.querySelector("#unity-container");
+                  var req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen ||
+                            fsTarget.msRequestFullscreen;
+                  if (req) {
+                    req.call(fsTarget);
+                  } else {
+                    unityInstance.SetFullscreen(1); // 極舊瀏覽器的後備
+                  }
+                };
+
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>
